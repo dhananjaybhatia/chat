@@ -380,7 +380,7 @@ export default function SideBar() {
     console.log("Selected User Dispatched to Redux:", user);
 
     setFoundUser([]); // Clear the search results
-    setSearchQuery(""); // Clear the search query
+    setSearchQuery(""); // Clear the search query 
   };
 
   const handleChatUserClick = (user) => {
@@ -388,7 +388,7 @@ export default function SideBar() {
   };
 
   return (
-    <div className="relative min-h-screen ">
+    <div className="relative min-h-screen px-8">
       <div className="h-full w-auto p-6 flex gap-4 items-center">
         <form
           onSubmit={(e) => e.preventDefault()} // Prevent form submission
