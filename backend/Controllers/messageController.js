@@ -1,5 +1,6 @@
 import Conversation from "../Models/conversationModel.js";
 import Message from "../Models/messageModel.js";
+import { getReceiverSocketId, io } from "../Socket/socket.js";
 
 export const sendMessage = async (req, res) => {
   try {
@@ -37,6 +38,21 @@ export const sendMessage = async (req, res) => {
 
     // Save the updated conversation and the new message to the database
     await Promise.all([chat.save(), newMessage.save()]);
+
+    //Socket.IO Function
+
+    const receiverSocketId = getReceiverSocketId(receiverId);
+    console.log("Receiver Socket ID:", receiverSocketId);
+    
+
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("newMessage", newMessage);
+      console.log("Message sent via WebSocket:", newMessage);
+    } else {
+      console.log(
+        `User ${receiverId} is offline. Message not sent via WebSocket.`
+      );
+    }
 
     // Send a success response with the new message
     res.status(201).json(newMessage);

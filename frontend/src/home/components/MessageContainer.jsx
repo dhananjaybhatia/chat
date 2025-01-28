@@ -3,12 +3,15 @@ import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { setMessage } from "../../redux/messageSlice";
+import { setMessage, addMessage } from "../../redux/messageSlice";
 import { useAuth } from "../../context/AuthContext";
 import SendIcon from "@mui/icons-material/Send";
+import { useSocketContext } from "../../context/SocketContext";
+import notify from "../../asset/audio.wav";
 
 export default function MessageContainer() {
   const [sendData, setSendData] = useState("");
+  const { socket } = useSocketContext();
   const dispatch = useDispatch();
   const selectedUser = useSelector((state) => state.selectedUser.selectedUser); // Get the selected user from Redux
   const messages = useSelector((state) => state.message.message); // Get messages from Redux
@@ -17,6 +20,23 @@ export default function MessageContainer() {
   const messagesContainerRef = useRef();
 
   const baseUrl = import.meta.env.VITE_BASE_URL;
+
+  useEffect(() => {
+    socket?.on("newMessage", (newMessage) => {
+      const sound = new Audio(notify);
+      sound.preload = "auto";
+
+      // Attempt to play the notification sound
+      sound.play().catch((error) => {
+        console.error("Audio playback failed:", error.message);
+      });
+
+      // Dispatch the addMessage action to add the new message to Redux
+      dispatch(addMessage(newMessage));
+    });
+
+    return () => socket?.off("newMessage");
+  }, [socket, dispatch]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -157,8 +177,8 @@ export default function MessageContainer() {
                   <div
                     className={`p-4 rounded-lg ${
                       message.senderId === authUser.id
-                        ? "bg-white" // Authenticated user's messages (right)
-                        : "bg-blue-200" // Other users' messages (left)
+                        ? "bg-blue-200" // Authenticated user's messages (right)
+                        : "bg-white" // Other users' messages (left)
                     }`}
                   >
                     {message.message}
