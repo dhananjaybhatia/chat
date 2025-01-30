@@ -6,21 +6,42 @@ import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import { useDispatch, useSelector } from "react-redux";
-import { setSelectedUsers } from "../../redux/selectedUserSlice"; // Import the setSelectedUser action
+import { setSelectedUsers } from "../../redux/selectedUserSlice";
+import { useSocketContext } from "../../context/SocketContext";
+import {
+  incrementUnreadMessage,
+  resetUnreadMessage,
+  selectUnreadMessages, // Import the selector
+} from "../../redux/messageSlice"; // Ensure correct path
 
 export default function SideBar() {
   const dispatch = useDispatch();
-  const selectedUser = useSelector((state) => state.selectedUser.selectedUser); // Get the selected user from Redux
+  const selectedUser = useSelector((state) => state.selectedUser.selectedUser);
+  const unreadMessages = useSelector(selectUnreadMessages); // Access unreadMessages state
 
   const [searchQuery, setSearchQuery] = useState("");
   const [foundUser, setFoundUser] = useState([]);
-  const [chatUser, setChatUser] = useState([]); // List of users to chat with
+  const [chatUser, setChatUser] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { onlineUsers, socket } = useSocketContext();
+
+  const baseUrl = import.meta.env.VITE_BASE_URL;
 
   const navigate = useNavigate();
   const { authUser } = useAuth();
 
-  const baseUrl = import.meta.env.VITE_BASE_URL;
+  const nowOnline = chatUser.map((user) => user._id);
+  const isOnline = nowOnline.map((userId) => onlineUsers.includes(userId));
+
+  useEffect(() => {
+    socket?.on("newMessage", (newMessage) => {
+      const senderId = newMessage.senderId; // Assuming newMessage contains the sender's ID
+      if (selectedUser?._id !== senderId) {
+        dispatch(incrementUnreadMessage(senderId));
+      }
+    });
+    return () => socket?.off("newMessage");
+  }, [socket, selectedUser, dispatch]);
 
   // Memoize fetchUsers with useCallback
   const fetchUsers = useCallback(
@@ -129,11 +150,12 @@ export default function SideBar() {
     console.log("Selected User Dispatched to Redux:", user);
 
     setFoundUser([]); // Clear the search results
-    setSearchQuery(""); // Clear the search query 
+    setSearchQuery(""); // Clear the search query
   };
 
   const handleChatUserClick = (user) => {
     dispatch(setSelectedUsers(user)); // Set the clicked user as the selected user
+    dispatch(resetUnreadMessage(user._id)); // Reset the unread message count for this user
   };
 
   return (
@@ -174,7 +196,7 @@ export default function SideBar() {
       {/* Display found users if there are search results */}
       {foundUser.length > 0 && (
         <div className="p-4">
-          {foundUser.map((user) => (
+          {foundUser.map((user, index) => (
             <div
               key={user._id}
               onClick={() => handleUserClick(user)}
@@ -185,6 +207,9 @@ export default function SideBar() {
                 alt={user.fullName.firstName}
                 className="h-10 w-10 rounded-full"
               />
+              {isOnline[index] && (
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
+              )}
               <div className="flex flex-col">
                 <span className="text-lg">
                   {user.fullName.firstName} {user.fullName.lastName}
@@ -204,27 +229,44 @@ export default function SideBar() {
           </div>
         ) : (
           <>
-            {chatUser.map((user) => (
+            {chatUser.map((user, index) => (
               <div
                 key={user._id}
                 onClick={() => handleChatUserClick(user)}
-                className={`flex items-center gap-3 p-4 hover:bg-yellow-300 ${
+                className={`flex items-center justify-between gap-3 p-4 hover:bg-yellow-300 ${
                   selectedUser?._id === user._id
                     ? "bg-green-200"
                     : "bg-yellow-200"
                 } cursor-pointer rounded-2xl mb-3`}
               >
-                <img
-                  src={user.profilePic || "https://via.placeholder.com/150"}
-                  alt={user.fullName.firstName}
-                  className="h-10 w-10 rounded-full"
-                />
-                <div className="flex flex-col">
-                  <span className="text-lg">
-                    {user.fullName.firstName} {user.fullName.lastName}
-                  </span>
-                  <span className="text-sm text-orange-700">{user.email}</span>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <img
+                      src={user.profilePic || "https://via.placeholder.com/150"}
+                      alt={user.fullName.firstName}
+                      className="h-10 w-10 rounded-full"
+                    />
+                    {/* Green dot for online users */}
+                    {isOnline[index] && (
+                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-lg">
+                      {user.fullName.firstName} {user.fullName.lastName}
+                    </span>
+                    <span className="text-sm text-orange-700">
+                      {user.email}
+                    </span>
+                  </div>
                 </div>
+                {/* Display unread message count */}
+                {selectedUser?._id !== user._id &&
+                  unreadMessages[user._id] > 0 && (
+                    <span className="bg-blue-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                      +{unreadMessages[user._id]}
+                    </span>
+                  )}
               </div>
             ))}
           </>
