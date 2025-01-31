@@ -34,13 +34,18 @@ export default function SideBar() {
   const isOnline = nowOnline.map((userId) => onlineUsers.includes(userId));
 
   useEffect(() => {
-    socket?.on("newMessage", (newMessage) => {
-      const senderId = newMessage.senderId; // Assuming newMessage contains the sender's ID
+    const handleIncomingMessage = (newMessage) => {
+      const senderId = newMessage.senderId;
       if (selectedUser?._id !== senderId) {
         dispatch(incrementUnreadMessage(senderId));
       }
-    });
-    return () => socket?.off("newMessage");
+    };
+
+    socket?.on("newMessage", handleIncomingMessage);
+
+    return () => {
+      socket?.off("newMessage", handleIncomingMessage); // ✅ Correct Cleanup
+    };
   }, [socket, selectedUser, dispatch]);
 
   // Memoize fetchUsers with useCallback
